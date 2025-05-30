@@ -15,7 +15,7 @@ interface Props {
 interface State {
   hasError: boolean
   error: Error | null
-  errorInfo: any
+  errorInfo: React.ErrorInfo | null
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -33,7 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
     }
   }
 
-  public componentDidCatch(error: Error, errorInfo: any) {
+  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     logger.error('React Error Boundary caught an error', {
       error: error.message,
       stack: error.stack,

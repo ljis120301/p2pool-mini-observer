@@ -2,9 +2,8 @@
 
 import React, { memo, useMemo, useCallback } from 'react'
 import { StatCard } from '@/components/ui/stat-card'
-import { ShareListItem, BlockListItem, PayoutListItem } from '@/components/activity-list-item'
 import { FormattingUtils } from '@/lib/formatting-utils'
-import type { SideBlock, FoundBlock, PoolInfo, MinerInfo } from '@/lib/p2pool-api'
+import type { PoolInfo, MinerInfo } from '@/lib/p2pool-api'
 import type { MinerPayout, MinerWindowShares } from '@/types/p2pool'
 import { Activity, Users, DollarSign, TrendingUp, Zap, Trophy } from 'lucide-react'
 
@@ -219,8 +218,8 @@ export const VirtualizedActivityList = memo(({
   itemHeight = 80,
   containerHeight = 256 
 }: {
-  items: any[]
-  renderItem: (item: any, index: number) => React.ReactNode
+  items: unknown[]
+  renderItem: (item: unknown, index: number) => React.ReactNode
   itemHeight?: number
   containerHeight?: number
 }) => {

@@ -147,68 +147,71 @@ export function P2PoolSettings({
         <CardTitle className="flex items-center text-xl">
           <div className="relative group mr-4">
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-400 to-purple-500 dark:from-indigo-500 dark:to-purple-600 rounded-2xl blur-lg opacity-60 group-hover:opacity-80 transition-opacity duration-300"></div>
-            <div className="relative p-4 rounded-2xl bg-gradient-to-br from-indigo-400/90 to-purple-500/90 dark:from-indigo-600/90 dark:to-purple-700/90 shadow-2xl border border-white/30 dark:border-white/20 backdrop-blur-sm">
+            <div className="relative p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-indigo-400/90 to-purple-500/90 dark:from-indigo-600/90 dark:to-purple-700/90 shadow-2xl border border-white/30 dark:border-white/20 backdrop-blur-sm">
               {/* White overlay bar behind the icon */}
               <div className="absolute inset-[2px] bg-gradient-to-br from-white/40 via-indigo-100/30 to-purple-200/20 dark:from-white/10 dark:via-indigo-800/20 dark:to-purple-900/15 rounded-xl"></div>
               <div className="relative z-10">
-                <Settings className="h-7 w-7 text-white drop-shadow-2xl" />
+                <Settings className="h-6 w-6 sm:h-7 sm:w-7 text-white drop-shadow-2xl" />
               </div>
             </div>
           </div>
-          <div className="space-y-1 flex-1">
+          <div className="space-y-1 flex-1 min-w-0">
             <div className="flex items-center space-x-3">
-              <span className="font-bold text-indigo-900 dark:text-indigo-100 text-2xl drop-shadow-sm tracking-tight">
-                P2Pool Mini Configuration
+              <span className="font-bold text-indigo-900 dark:text-indigo-100 text-xl sm:text-2xl drop-shadow-sm tracking-tight">
+                P2Pool <span className="hidden sm:inline">Mini </span>Configuration
               </span>
             </div>
-            <div className="text-sm text-indigo-700/90 dark:text-indigo-300/90 font-medium">
-              Connected to P2Pool Mini Observer - Track your mining progress
+            <div className="text-xs sm:text-sm text-indigo-700/90 dark:text-indigo-300/90 font-medium">
+              <span className="hidden sm:inline">Connected to P2Pool Mini Observer - </span>Track your mining progress
             </div>
           </div>
           <div className="flex items-center justify-center w-6 h-6 flex-shrink-0">
             {refreshing && (
-              <div className="animate-spin rounded-full h-5 w-5 border-2 border-indigo-600 border-t-transparent drop-shadow-lg"></div>
+              <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-2 border-indigo-600 border-t-transparent drop-shadow-lg"></div>
             )}
           </div>
         </CardTitle>
-        <CardDescription className="text-sm text-indigo-700/90 dark:text-indigo-300/90 font-medium mt-3 px-4 py-3 bg-gradient-to-r from-white/90 via-indigo-50/70 to-purple-50/50 dark:from-indigo-950/60 dark:via-purple-950/40 dark:to-blue-950/50 rounded-xl border border-indigo-300/40 dark:border-indigo-600/40 backdrop-blur-sm shadow-inner">
+        <CardDescription className="text-xs sm:text-sm text-indigo-700/90 dark:text-indigo-300/90 font-medium mt-3 px-3 sm:px-4 py-2 sm:py-3 bg-gradient-to-r from-white/90 via-indigo-50/70 to-purple-50/50 dark:from-indigo-950/60 dark:via-purple-950/40 dark:to-blue-950/50 rounded-xl border border-indigo-300/40 dark:border-indigo-600/40 backdrop-blur-sm shadow-inner">
           <div className="flex items-center space-x-2 min-h-[20px]">
             <div className="w-2 h-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full animate-pulse flex-shrink-0"></div>
-            <span className="flex-1">Real-time P2Pool mining data and personal statistics</span>
+            <span className="flex-1">
+              <span className="hidden sm:inline">Real-time P2Pool mining data and personal statistics</span>
+              <span className="sm:hidden">Real-time mining data & stats</span>
+            </span>
             {refreshing && (
               <div className="text-xs text-indigo-600 flex items-center flex-shrink-0">
                 <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                Refreshing...
+                <span className="hidden sm:inline">Refreshing...</span>
               </div>
             )}
           </div>
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6 pt-6 relative z-10">
+      <CardContent className="space-y-4 sm:space-y-6 pt-4 sm:pt-6 relative z-10">
         {/* Connection Status */}
         <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-white/70 via-indigo-50/50 to-purple-50/40 dark:from-indigo-950/40 dark:via-purple-950/30 dark:to-blue-950/40 border border-indigo-200/50 dark:border-indigo-700/50 shadow-lg">
           {/* Background pattern for status card */}
           <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent dark:from-white/5 dark:to-transparent"></div>
           <div className="absolute top-2 right-2 w-16 h-16 bg-gradient-to-br from-indigo-200/20 to-purple-300/15 dark:from-indigo-800/20 dark:to-purple-700/15 rounded-full blur-sm"></div>
           
-          <div className="relative z-10 flex items-center justify-between p-4">
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 space-y-3 sm:space-y-0">
             <div className="flex items-center space-x-3">
               <div className="relative group">
                 <div className={`absolute inset-0 rounded-full blur-sm ${
                   isConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'
                 }`}></div>
-                <div className={`relative w-6 h-6 rounded-full border-2 border-white/50 shadow-lg flex items-center justify-center ${
+                <div className={`relative w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 border-white/50 shadow-lg flex items-center justify-center ${
                   isConnected ? 'bg-green-500' : 'bg-red-500'
                 }`}>
                   {isConnected ? (
-                    <CheckCircle className="h-4 w-4 text-white" />
+                    <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
                   ) : (
-                    <XCircle className="h-4 w-4 text-white" />
+                    <XCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
                   )}
                 </div>
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-bold flex items-center min-h-[24px] text-indigo-900 dark:text-indigo-100">
+                <div className="font-bold flex items-center min-h-[24px] text-indigo-900 dark:text-indigo-100 text-sm sm:text-base">
                   {isConnected ? "Connected" : "Disconnected"}
                   <div className="flex items-center justify-center w-6 h-4 ml-2 flex-shrink-0">
                     {refreshing && (
@@ -216,8 +219,10 @@ export function P2PoolSettings({
                     )}
                   </div>
                 </div>
-                <div className="text-sm text-indigo-700/80 dark:text-indigo-300/80 min-h-[20px] font-medium">
-                  <span>P2Pool Mini Observer • {DEFAULT_API_URL}</span>
+                <div className="text-xs sm:text-sm text-indigo-700/80 dark:text-indigo-300/80 min-h-[20px] font-medium">
+                  <span className="block sm:inline">P2Pool Mini Observer</span>
+                  <span className="hidden sm:inline"> • </span>
+                  <span className="block sm:inline text-xs">{DEFAULT_API_URL}</span>
                   {refreshing && <span className="text-purple-600"> • Refreshing...</span>}
                 </div>
               </div>
@@ -225,7 +230,7 @@ export function P2PoolSettings({
             
             <Badge 
               variant={isConnected ? "default" : "destructive"} 
-              className={`flex-shrink-0 min-w-[80px] justify-center shadow-lg ${
+              className={`flex-shrink-0 min-w-[80px] justify-center shadow-lg text-xs sm:text-sm ${
                 isConnected 
                   ? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 border-green-400" 
                   : "bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 border-red-400"
@@ -238,14 +243,16 @@ export function P2PoolSettings({
         </div>
 
         {/* Miner Address Search */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div className="relative">
-            <Label htmlFor="miner-address" className="text-lg font-semibold text-indigo-900 dark:text-indigo-100 flex items-center space-x-2">
+            <Label htmlFor="miner-address" className="text-base sm:text-lg font-semibold text-indigo-900 dark:text-indigo-100 flex items-center space-x-2">
               <div className="w-3 h-3 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full shadow-sm"></div>
               <span>Track Your Mining Address</span>
             </Label>
           </div>
-          <div className="flex space-x-3">
+          
+          {/* Mobile: Stack input and button vertically */}
+          <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
             <div className="flex-1 relative">
               <Input
                 id="miner-address"
@@ -255,7 +262,7 @@ export function P2PoolSettings({
                 placeholder="4... (Enter your Monero wallet address)"
                 className={`${!isValidMinerAddress ? "border-red-500 bg-red-50/50 dark:bg-red-950/20" : "border-indigo-300 dark:border-indigo-600"} 
                   bg-white/70 dark:bg-indigo-950/30 backdrop-blur-sm shadow-lg text-indigo-900 dark:text-indigo-100 placeholder:text-indigo-600/60 dark:placeholder:text-indigo-400/60
-                  focus:border-purple-400 dark:focus:border-purple-500 focus:ring-purple-400/30 dark:focus:ring-purple-500/30`}
+                  focus:border-purple-400 dark:focus:border-purple-500 focus:ring-purple-400/30 dark:focus:ring-purple-500/30 text-sm`}
                 disabled={hasSearched}
               />
               {hasSearched && (
@@ -265,15 +272,15 @@ export function P2PoolSettings({
             <Button
               onClick={handleMinerSearch}
               disabled={(!localMinerAddress.trim() || !isValidMinerAddress) && !hasSearched}
-              className={`relative overflow-hidden shadow-xl transition-all duration-300 ${
+              className={`relative overflow-hidden shadow-xl transition-all duration-300 w-full sm:w-auto ${
                 hasSearched 
                   ? "bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 border-red-400" 
                   : "bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 border-indigo-400"
-              } border text-white font-semibold px-6`}
+              } border text-white font-semibold px-4 sm:px-6`}
             >
               {/* Button background pattern */}
               <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
-              <div className="relative z-10 flex items-center">
+              <div className="relative z-10 flex items-center justify-center">
                 {searchingWallet ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
@@ -287,20 +294,23 @@ export function P2PoolSettings({
           {/* Status messages */}
           {!isValidMinerAddress && localMinerAddress.trim() && !hasSearched && (
             <div className="p-3 bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <p className="text-sm text-red-600 dark:text-red-400 font-medium">
+              <p className="text-xs sm:text-sm text-red-600 dark:text-red-400 font-medium">
                 Please enter a valid Monero address (95 characters, starting with 4)
               </p>
             </div>
           )}
           {hasSearched && minerAddress && (
             <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border border-green-200 dark:border-green-800 rounded-lg">
-              <p className="text-sm text-green-600 dark:text-green-400 font-semibold">
-                ✓ Tracking wallet: {minerAddress.slice(0, 10)}...{minerAddress.slice(-10)}
+              <p className="text-xs sm:text-sm text-green-600 dark:text-green-400 font-semibold">
+                ✓ Tracking wallet: 
+                <span className="block sm:inline mt-1 sm:mt-0 sm:ml-1 font-mono">
+                  {minerAddress.slice(0, 8)}...{minerAddress.slice(-8)}
+                </span>
               </p>
             </div>
           )}
           <div className="p-3 bg-gradient-to-r from-blue-50/50 to-cyan-50/40 dark:from-blue-950/20 dark:to-cyan-950/15 border border-blue-200/60 dark:border-blue-800/60 rounded-lg backdrop-blur-sm">
-            <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+            <p className="text-xs sm:text-sm text-blue-700 dark:text-blue-300 font-medium">
               Enter your Monero wallet address to see your personal mining statistics, recent shares, and blocks found on P2Pool Mini
             </p>
           </div>
@@ -313,7 +323,7 @@ export function P2PoolSettings({
           <div className="absolute top-2 right-2 w-12 h-12 bg-gradient-to-br from-cyan-200/20 to-blue-300/15 dark:from-cyan-800/20 dark:to-blue-700/15 rounded-full blur-sm"></div>
           
           <InfoIcon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-          <AlertDescription className="text-cyan-800 dark:text-cyan-200 font-medium">
+          <AlertDescription className="text-cyan-800 dark:text-cyan-200 font-medium text-xs sm:text-sm">
             <span className="font-bold">Quick start:</span> Enter your wallet address above to track mining progress and rewards.
           </AlertDescription>
         </Alert>

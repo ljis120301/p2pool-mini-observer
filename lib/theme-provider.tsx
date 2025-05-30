@@ -29,9 +29,11 @@ export function ThemeProvider({
   children,
   defaultTheme = "system",
   storageKey = "ui-theme",
-  attribute = "class",
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  attribute: _attribute = "class",
   enableSystem = true,
-  disableTransitionOnChange = false,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  disableTransitionOnChange: _disableTransitionOnChange = false,
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = React.useState<Theme>(defaultTheme)

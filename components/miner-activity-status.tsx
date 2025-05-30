@@ -1,8 +1,17 @@
 import { P2PoolAPI } from "@/lib/p2pool-api"
 
+interface MinerInfo {
+  last_share_timestamp: number
+}
+
+interface MinerWindowShares {
+  shares: number
+  blocks: unknown[]
+}
+
 interface MinerActivityStatusProps {
-  minerInfo: any | null
-  minerWindowShares: { shares: number; blocks: any[] }
+  minerInfo: MinerInfo | null
+  minerWindowShares: MinerWindowShares
 }
 
 interface ActivityStatus {
@@ -12,8 +21,8 @@ interface ActivityStatus {
 }
 
 export function getMinerActivityStatus(
-  minerInfo: any | null,
-  minerWindowShares: { shares: number; blocks: any[] }
+  minerInfo: MinerInfo | null,
+  minerWindowShares: MinerWindowShares
 ): ActivityStatus {
   if (!minerInfo || !minerWindowShares) {
     return { isActive: false, statusText: 'No Data', reason: 'No miner data available' }

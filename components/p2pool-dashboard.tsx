@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { 
@@ -12,12 +11,10 @@ import {
   Zap, 
   TrendingUp, 
   AlertCircle,
-  RefreshCw,
   DollarSign,
   Info,
   Trophy
 } from "lucide-react"
-import type { PoolInfo, MinerInfo, SideBlock, FoundBlock } from "@/lib/p2pool-api"
 import { P2PoolSettings } from "@/components/p2pool-settings"
 import { GlowingEffect } from "@/components/ui/glowing-effect"
 import { StatCard } from "@/components/ui/stat-card"
@@ -30,16 +27,11 @@ import { useOptimizedP2PoolData } from "@/hooks/useOptimizedP2PoolData"
 import { useDebouncedCallback } from "@/hooks/useDebounce"
 import { 
   DashboardLoadingSkeleton,
-  StatCardSkeleton,
   ActivityListItemSkeleton,
-  ActivitySectionSkeleton,
-  MiningDashboardHeaderSkeleton,
   DashboardGridSkeleton,
   MinerActivityIndicatorSkeleton
 } from "@/components/ui/skeletons"
-import { PerformanceMonitor } from "@/components/performance-monitor"
-
-const LOAD_BATCH_SIZE = 20
+import { toast } from "sonner"
 
 // localStorage keys for persistence
 const STORAGE_KEYS = {
@@ -84,22 +76,17 @@ export function P2PoolDashboard() {
   const {
     poolInfo,
     minerInfo,
-    recentShares,
-    foundBlocks,
     recentMinerShares,
     minerBlocks,
     minerPayouts,
     minerWindowShares,
-    xmrPrice: hookXmrPrice,
     isLoading,
     isRefreshing,
     error,
     isConnected,
     lastUpdate,
     refetch,
-    loadMoreShares,
     loadMoreBlocks,
-    clearCache,
   } = useOptimizedP2PoolData({
     apiUrl,
     minerAddress: searchedMinerAddress || undefined,
@@ -199,7 +186,7 @@ export function P2PoolDashboard() {
       // Hook will automatically fetch data when searchedMinerAddress changes
     }
     // Pool data is automatically fetched by the hook
-  }, [])
+  }, [minerAddress])
 
   // Listen for refresh triggers from context
   useEffect(() => {
@@ -208,6 +195,40 @@ export function P2PoolDashboard() {
       handleRefreshAll()
     }
   }, [refreshTrigger, lastRefreshTrigger, handleRefreshAll])
+
+  // Monitor errors and handle them gracefully to prevent Next.js console errors
+  useEffect(() => {
+    if (error) {
+      // Silent handling for network outages - only log in development mode to prevent Next.js console errors
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('P2Pool data error (handled):', error);
+      }
+      
+      // Don't show error toasts for certain expected errors that already have specific handling
+      if (!error.includes('Miner not found') && 
+          !error.includes('Connection failed') &&
+          !error.includes('Unable to reach')) {
+        
+        // Only show error toast if it's a new error (not repeating)
+        const errorKey = `p2pool-error-${error.slice(0, 50)}`;
+        const lastErrorTime = sessionStorage.getItem(errorKey);
+        const now = Date.now();
+        
+        if (!lastErrorTime || now - parseInt(lastErrorTime) > 30000) { // Only show once per 30 seconds per error type
+          sessionStorage.setItem(errorKey, now.toString());
+          
+          toast.error('Data Update Failed', {
+            description: 'Connection issues detected. Retrying automatically.',
+            duration: 4000,
+            action: {
+              label: "Retry Now",
+              onClick: () => handleRefreshAll()
+            }
+          });
+        }
+      }
+    }
+  }, [error, handleRefreshAll])
 
   useEffect(() => {
     if (minerInfo && searchedMinerAddress && !isLoading && !hasScrolledForCurrentAddress) {
@@ -243,7 +264,7 @@ export function P2PoolDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
       {/* Connection Settings */}
       <P2PoolSettings
         apiUrl={apiUrl}
@@ -256,7 +277,7 @@ export function P2PoolDashboard() {
       />
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="mx-2 sm:mx-0">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
@@ -266,9 +287,9 @@ export function P2PoolDashboard() {
         <>
           {/* Personal Mining Dashboard */}
           {minerInfo && searchedMinerAddress && (
-            <div className="space-y-6" data-mining-dashboard>
+            <div className="space-y-4 sm:space-y-6" data-mining-dashboard>
               {/* Personal Mining Header */}
-              <Card className="group relative overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-cyan-100 dark:from-blue-950/30 dark:via-indigo-950/30 dark:to-cyan-950/40 border border-blue-200/40 dark:border-blue-700/40 shadow-xl dark:hover:shadow-2xl transition-all duration-500">
+              <Card className="group relative overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-cyan-100 dark:from-blue-950/30 dark:via-indigo-950/30 dark:to-cyan-950/40 border border-blue-200/40 dark:border-blue-700/40 shadow-xl dark:hover:shadow-2xl transition-all duration-500 mx-2 sm:mx-0">
                 <div className="absolute inset-0 bg-gradient-to-br from-white/95 via-blue-50/70 to-indigo-100/50 dark:from-blue-950/30 dark:via-indigo-950/20 dark:to-cyan-950/35"></div>
                 
                 <GlowingEffect 
@@ -278,29 +299,29 @@ export function P2PoolDashboard() {
                   blur={2}
                 />
                 
-                <CardHeader className="pb-4 relative z-10 border-b border-blue-200/30 dark:border-blue-700/30">
-                  <CardTitle className="flex items-center justify-between text-xl">
-                    <div className="flex items-center space-x-4">
+                <CardHeader className="pb-3 sm:pb-4 relative z-10 border-b border-blue-200/30 dark:border-blue-700/30">
+                  <CardTitle className="flex items-center justify-between text-lg sm:text-xl">
+                    <div className="flex items-center space-x-3 sm:space-x-4">
                       <div className="space-y-1">
                         <div className="flex items-center">
-                          <span className="font-bold text-blue-900 dark:text-blue-100 text-2xl drop-shadow-sm tracking-tight">
+                          <span className="font-bold text-blue-900 dark:text-blue-100 text-xl sm:text-2xl drop-shadow-sm tracking-tight">
                             Your Mining Dashboard
                           </span>
                         </div>
-                        <div className="text-sm text-blue-700/90 dark:text-blue-300/90 font-medium">
+                        <div className="text-xs sm:text-sm text-blue-700/90 dark:text-blue-300/90 font-medium">
                           Personal Mining Operations Center
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center justify-center w-6 h-6 flex-shrink-0">
                       {isRefreshing && (
-                         <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent drop-shadow-lg"></div>
+                         <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-2 border-blue-600 border-t-transparent drop-shadow-lg"></div>
                       )}
                     </div>
                   </CardTitle>
                 </CardHeader>
                 
-                <CardContent className="pt-6 relative z-10">
+                <CardContent className="pt-4 sm:pt-6 relative z-10">
                   <div className="flex items-center justify-between">
                     {isLoading && !minerInfo ? (
                       <MinerActivityIndicatorSkeleton />
@@ -319,7 +340,7 @@ export function P2PoolDashboard() {
                 <DashboardGridSkeleton />
               ) : (
                 minerInfo && poolInfo && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                     <StatCard
                       title="Current Shares"
                       value={minerWindowShares.shares}
@@ -388,15 +409,15 @@ export function P2PoolDashboard() {
               )}
 
               {/* Personal Activity Sections */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
                 {/* Share History */}
                 <Card className="group relative overflow-hidden bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 dark:from-blue-950/30 dark:via-cyan-950/30 dark:to-indigo-950/40 border border-blue-200/40 dark:border-blue-700/40 shadow-xl">
-                  <CardHeader>
-                    <CardTitle>Share History</CardTitle>
-                    <CardDescription>Recent mining activity</CardDescription>
+                  <CardHeader className="pb-3 sm:pb-4">
+                    <CardTitle className="text-lg sm:text-xl">Share History</CardTitle>
+                    <CardDescription className="text-sm">Recent mining activity</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ScrollArea className="h-64 rounded-lg border bg-slate-50/50 dark:bg-slate-900/50 p-4">
+                    <ScrollArea className="h-64 rounded-lg border bg-slate-50/50 dark:bg-slate-900/50 p-3 sm:p-4">
                       <div className="space-y-3">
                         {isLoading && recentMinerShares.length === 0 ? (
                           Array.from({ length: 3 }).map((_, i) => (
@@ -426,12 +447,12 @@ export function P2PoolDashboard() {
 
                 {/* Rewards Archive */}
                 <Card className="group relative overflow-hidden bg-gradient-to-br from-purple-50 via-violet-50 to-fuchsia-100 dark:from-purple-950/30 dark:via-violet-950/30 dark:to-fuchsia-950/40 border border-purple-200/40 dark:border-purple-700/40 shadow-xl">
-                  <CardHeader>
-                    <CardTitle>Reward Archive</CardTitle>
-                    <CardDescription>Found blocks & payouts</CardDescription>
+                  <CardHeader className="pb-3 sm:pb-4">
+                    <CardTitle className="text-lg sm:text-xl">Reward Archive</CardTitle>
+                    <CardDescription className="text-sm">Found blocks & payouts</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ScrollArea className="h-64 rounded-lg border bg-slate-50/50 dark:bg-slate-900/50 p-4">
+                    <ScrollArea className="h-64 rounded-lg border bg-slate-50/50 dark:bg-slate-900/50 p-3 sm:p-4">
                       <div className="space-y-3">
                         {isLoading && minerBlocks.length === 0 && computedValues.displayedPayouts.length === 0 ? (
                           Array.from({ length: 3 }).map((_, i) => (
@@ -456,7 +477,6 @@ export function P2PoolDashboard() {
                                 <PayoutListItem 
                                   key={`${payout.timestamp}-${index}`}
                                   payout={payout}
-                                  index={index}
                                   formatTimeAgo={FormattingUtils.formatTimeAgo}
                                   formatXMR={FormattingUtils.formatXMR}
                                   formatUSDOnly={(amount) => FormattingUtils.formatUSDOnly(amount, xmrPrice)}
@@ -508,7 +528,7 @@ export function P2PoolDashboard() {
           )}
 
           {/* Pool Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <StatCard
               title="Pool Hashrate"
               value={FormattingUtils.formatHashrate(poolInfo.sidechain.difficulty)}
@@ -571,45 +591,42 @@ export function P2PoolDashboard() {
           </div>
 
           {/* Data Source Information */}
-          <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20">
+          <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20 mx-2 sm:mx-0">
             <Info className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800 dark:text-blue-200">
-              <strong>Data Source:</strong> This dashboard shows live data from <code>{apiUrl}</code>. 
+            <AlertDescription className="text-blue-800 dark:text-blue-200 text-xs sm:text-sm">
+              <strong>Data Source:</strong> This dashboard shows live data from <code className="text-xs">{apiUrl}</code>. 
               The values displayed here are current, real-time statistics from the P2Pool network.
             </AlertDescription>
           </Alert>
 
           {/* Effort Guide - Only show if no personal miner tracked */}
           {!searchedMinerAddress && (
-            <Card className="bg-muted/30">
-              <CardHeader>
-                <CardTitle className="text-lg">Mining Effort Guide</CardTitle>
-                <CardDescription>
+            <Card className="bg-muted/30 mx-2 sm:mx-0">
+              <CardHeader className="pb-3 sm:pb-4">
+                <CardTitle className="text-base sm:text-lg">Mining Effort Guide</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
                   Understanding pool effort for finding Monero mainchain blocks
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <EffortGuide />
-                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                  <h4 className="font-medium text-sm mb-2 text-blue-800 dark:text-blue-200">💡 Important Distinction:</h4>
-                  <div className="space-y-2 text-sm text-blue-700 dark:text-blue-300">
+                <div className="mt-4 p-3 sm:p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <h4 className="font-medium text-xs sm:text-sm mb-2 text-blue-800 dark:text-blue-200">💡 Important Distinction:</h4>
+                  <div className="space-y-2 text-xs sm:text-sm text-blue-700 dark:text-blue-300">
                     <div><span className="font-bold">P2Pool Shares</span> (every ~10s): Individual miner contributions - these do NOT reset effort</div>
                     <div><span className="font-bold">Monero Blocks</span> (every ~2m): Pool-wide achievements - these DO reset effort</div>
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground mt-4">
+                <p className="text-xs sm:text-sm text-muted-foreground mt-4">
                   <span className="font-bold">Pool Effort</span> tracks how much work the entire P2Pool network has done toward finding the next 
-                  <span className="font-bold"> Monero mainchain block</span>. Finding P2Pool shares (sidechain) doesn't reset this - only when 
+                  <span className="font-bold"> Monero mainchain block</span>. Finding P2Pool shares (sidechain) doesn&apos;t reset this - only when 
                   the pool collectively finds a Monero block does the effort reset to 0%.
                 </p>
               </CardContent>
             </Card>
-          )}
-
-          {/* Performance Monitor */}
-          <PerformanceMonitor />
+          )}     
         </>
       )}
     </div>
   )
-} 
+}

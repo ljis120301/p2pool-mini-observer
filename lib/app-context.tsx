@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
 import { PriceAPI } from '@/lib/price-api'
 
 interface AppContextType {
@@ -55,22 +55,27 @@ export function AppProvider({ children }: AppProviderProps) {
   // Refresh trigger
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   
-  const priceApi = new PriceAPI()
-
   // XMR Price fetching
-  const fetchXMRPrice = async () => {
+  const fetchXMRPrice = useCallback(async () => {
+    const priceApi = new PriceAPI()
     try {
       setPriceLoading(true)
       const price = await priceApi.getXMRPrice()
       setXmrPrice(price)
       setLastPriceUpdate(new Date())
-      console.log('XMR price updated:', price)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('XMR price updated:', price)
+      }
     } catch (error) {
-      console.error('Failed to fetch XMR price:', error)
+      // Silent handling for network outages - don't log to console to prevent Next.js errors
+      // Only log in development mode for debugging purposes
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('XMR price fetch failed (expected during network outages):', error)
+      }
     } finally {
       setPriceLoading(false)
     }
-  }
+  }, [])
 
   // Functions
   const onRefresh = () => {
@@ -80,9 +85,9 @@ export function AppProvider({ children }: AppProviderProps) {
   // Effects
   useEffect(() => {
     fetchXMRPrice()
-    const priceInterval = setInterval(fetchXMRPrice, 5 * 60 * 1000) // Update every 5 minutes
-    return () => clearInterval(priceInterval)
-  }, [])
+    const interval = setInterval(fetchXMRPrice, 5 * 60 * 1000) // Every 5 minutes
+    return () => clearInterval(interval)
+  }, [fetchXMRPrice])
 
   const contextValue: AppContextType = {
     xmrPrice,

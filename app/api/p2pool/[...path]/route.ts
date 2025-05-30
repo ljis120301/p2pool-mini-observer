@@ -25,7 +25,9 @@ export async function GET(
       ? `${targetUrl}?${queryString}`
       : targetUrl
 
-    console.log('Proxying request to:', finalUrl)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Proxying request to:', finalUrl)
+    }
 
     // Make the request to the P2Pool API
     const response = await fetch(finalUrl, {
@@ -53,7 +55,10 @@ export async function GET(
       },
     })
   } catch (error) {
-    console.error('P2Pool API proxy error:', error)
+    // Silent handling for network outages - only log in development mode
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('P2Pool API proxy error (expected during network outages):', error)
+    }
     
     return NextResponse.json(
       { 

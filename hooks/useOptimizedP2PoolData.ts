@@ -193,8 +193,9 @@ export function useOptimizedP2PoolData({
       if (!minerAddress) throw new Error('No miner address provided')
       try {
         const payouts = await api.getMinerPayouts(minerAddress)
-        await storage.storePayouts(apiUrl, minerAddress, payouts)
-        return payouts
+        const typedPayouts = payouts as MinerPayout[]
+        await storage.storePayouts(apiUrl, minerAddress, typedPayouts)
+        return typedPayouts
       } catch (error) {
         const cachedPayouts = await storage.getPayouts(apiUrl, minerAddress)
         if (cachedPayouts) {

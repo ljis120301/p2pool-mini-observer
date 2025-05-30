@@ -82,4 +82,6 @@ export const StatCard = memo(({
       </CardContent>
     </Card>
   )
-}) 
+})
+
+StatCard.displayName = 'StatCard' 

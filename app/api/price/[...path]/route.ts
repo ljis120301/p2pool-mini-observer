@@ -17,7 +17,9 @@ export async function GET(
     const queryString = searchParams.toString()
     const finalUrl = queryString ? `${targetUrl}?${queryString}` : targetUrl
 
-    console.log('Proxying price request to:', finalUrl)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Proxying price request to:', finalUrl)
+    }
 
     // Make the request to CoinGecko API
     const response = await fetch(finalUrl, {
@@ -49,7 +51,10 @@ export async function GET(
       },
     })
   } catch (error) {
-    console.error('Price API proxy error:', error)
+    // Silent handling for network outages - only log in development mode
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Price API proxy error (expected during network outages):', error)
+    }
     
     return NextResponse.json(
       { 

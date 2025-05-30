@@ -1,3 +1,5 @@
+import { LucideIcon } from 'lucide-react'
+
 // Core P2Pool types
 export interface PoolInfo {
   sidechain: {
@@ -50,7 +52,7 @@ export interface MinerPayout {
   template_id?: string
   coinbase_reward: number
   timestamp: number
-  main_height: number
+  main_height?: number
 }
 
 // Dashboard state types
@@ -112,7 +114,7 @@ export interface StatCardProps {
   title: string
   value: string | number
   subtitle?: string
-  icon: any // LucideIcon
+  icon: LucideIcon
   gradient: string
   iconGradient: string
   decorativeColor: string
@@ -141,7 +143,6 @@ export interface BlockListItemProps {
 
 export interface PayoutListItemProps {
   payout: MinerPayout
-  index: number
   formatTimeAgo: (timestamp: number) => string
   formatXMR: (amount: number) => string
   formatUSDOnly?: (amount: number) => string

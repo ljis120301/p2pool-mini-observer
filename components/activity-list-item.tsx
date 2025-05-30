@@ -32,9 +32,8 @@ interface PayoutListItemProps {
     template_id?: string
     coinbase_reward: number
     timestamp: number
-    main_height: number
+    main_height?: number
   }
-  index: number
   formatTimeAgo: (timestamp: number) => string
   formatXMR: (amount: number) => string
   formatUSDOnly?: (amount: number) => string
@@ -130,7 +129,6 @@ export function BlockListItem({
 
 export function PayoutListItem({ 
   payout, 
-  index, 
   formatTimeAgo, 
   formatXMR, 
   formatUSDOnly,
@@ -150,7 +148,7 @@ export function PayoutListItem({
                   Payout Received
                 </div>
                 <div className="text-xs text-purple-600/70 dark:text-purple-400/70">
-                  Block #{payout.main_height}
+                  {payout.main_height ? `Block #${payout.main_height}` : 'Payout'}
                 </div>
               </div>
             </div>

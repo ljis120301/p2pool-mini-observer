@@ -101,7 +101,7 @@ export function validateApiUrl(url: string): ValidationResult {
     }
 
     return { isValid: true }
-  } catch (error) {
+  } catch {
     return { 
       isValid: false, 
       error: 'Invalid URL format' 

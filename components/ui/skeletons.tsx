@@ -61,7 +61,7 @@ export function DashboardGridSkeleton() {
 }
 
 // Skeleton for activity sections
-export function ActivitySectionSkeleton({ title, description }: { title: string; description: string }) {
+export function ActivitySectionSkeleton() {
   return (
     <Card className="group relative overflow-hidden bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 dark:from-slate-950/30 dark:via-gray-950/30 dark:to-slate-900/40 border border-slate-200/40 dark:border-slate-700/40 shadow-xl">
       <CardHeader>

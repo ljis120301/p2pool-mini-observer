@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -49,47 +49,7 @@ export function PerformanceMonitor() {
   const [isClearing, setIsClearing] = useState(false)
   const [memoryUsage, setMemoryUsage] = useState<number | null>(null)
 
-  useEffect(() => {
-    updateStats()
-    
-    // Set up periodic stats updates
-    const interval = setInterval(updateStats, 30000) // Every 30 seconds
-    
-    // Monitor online/offline status
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-    
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-    
-    // Monitor memory usage if available
-    if ('memory' in performance) {
-      const updateMemory = () => {
-        const memory = (performance as any).memory
-        if (memory) {
-          setMemoryUsage(memory.usedJSHeapSize)
-        }
-      }
-      
-      updateMemory()
-      const memoryInterval = setInterval(updateMemory, 5000)
-      
-      return () => {
-        clearInterval(interval)
-        clearInterval(memoryInterval)
-        window.removeEventListener('online', handleOnline)
-        window.removeEventListener('offline', handleOffline)
-      }
-    }
-
-    return () => {
-      clearInterval(interval)
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
-  }, [])
-
-  const updateStats = async () => {
+  const updateStats = useCallback(async () => {
     try {
       // React Query stats
       const queryCache = queryClient.getQueryCache()
@@ -117,7 +77,47 @@ export function PerformanceMonitor() {
     } catch (error) {
       logger.error('Failed to update performance stats', error)
     }
-  }
+  }, [queryClient, serviceWorkerManager])
+
+  useEffect(() => {
+    updateStats()
+    
+    // Set up periodic stats updates
+    const interval = setInterval(updateStats, 30000) // Every 30 seconds
+    
+    // Monitor online/offline status
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    
+    // Monitor memory usage if available
+    if ('memory' in performance) {
+      const updateMemory = () => {
+        const memory = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
+        if (memory) {
+          setMemoryUsage(memory.usedJSHeapSize)
+        }
+      }
+      
+      updateMemory()
+      const memoryInterval = setInterval(updateMemory, 5000)
+      
+      return () => {
+        clearInterval(interval)
+        clearInterval(memoryInterval)
+        window.removeEventListener('online', handleOnline)
+        window.removeEventListener('offline', handleOffline)
+      }
+    }
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [updateStats])
 
   const clearAllCaches = async () => {
     setIsClearing(true)

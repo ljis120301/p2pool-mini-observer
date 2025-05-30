@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AppProvider } from "@/lib/app-context";
 import { QueryProvider } from "@/lib/query-provider";
 import { AppHeader } from "@/components/app-header";
+import { AppFooter } from "@/components/app-footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -54,11 +55,7 @@ export default function RootLayout({
                 </main>
 
                 {/* Footer */}
-                <footer className="border-t border-border mt-16">
-                  <div className="container mx-auto px-4 py-6 text-center text-muted-foreground">
-                    <p>&copy; 2024 P2Pool Mini Observer. Built with Next.js, Tailwind CSS 4, and Shadcn/ui.</p>
-                  </div>
-                </footer>
+                <AppFooter />
               </div>
               <Toaster />
             </AppProvider>

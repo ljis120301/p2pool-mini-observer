@@ -55,13 +55,20 @@ export class PriceAPI {
         const tenMinutesAgo = now - (10 * 60)
         
         if (data.monero.last_updated_at < tenMinutesAgo) {
-          console.warn('XMR price data is stale:', new Date(data.monero.last_updated_at * 1000))
+          // Only warn about stale data, don't error out
+          if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+            console.warn('XMR price data is stale:', new Date(data.monero.last_updated_at * 1000))
+          }
         }
       }
       
       return data.monero.usd
     } catch (error) {
-      console.error('Error fetching XMR price:', error)
+      // Silent handling for network outages - don't log to console to prevent Next.js errors
+      // Only log in development mode for debugging purposes
+      if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+        console.warn('XMR price fetch failed (expected during network outages):', error)
+      }
       // Return null instead of throwing to gracefully handle price fetch failures
       throw new Error(`Failed to fetch XMR price: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }

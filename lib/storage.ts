@@ -25,7 +25,7 @@ const RETENTION_PERIODS = {
   PAYOUTS: 365 * 24 * 60 * 60 * 1000, // 1 year
 } as const
 
-interface StoredData<T = any> {
+interface StoredData<T = unknown> {
   id: string
   data: T
   timestamp: number
@@ -293,9 +293,9 @@ class P2PoolStorage {
 
     try {
       // Clean up each store based on retention periods
-      for (const [storeKey, storeName] of Object.entries(STORES)) {
-        if (storeName === STORES.METADATA) continue
-
+      const storeEntries = Object.entries(STORES).filter(([, storeName]) => storeName !== STORES.METADATA)
+      
+      for (const [storeKey, storeName] of storeEntries) {
         const retentionPeriod = RETENTION_PERIODS[storeKey as keyof typeof RETENTION_PERIODS]
         const cutoffTime = now - retentionPeriod
 

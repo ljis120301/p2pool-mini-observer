@@ -158,10 +158,14 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxDelay: 10000, // 10 seconds
   backoffMultiplier: 2,
   retryCondition: (error: Error) => {
-    // Retry on network errors, timeouts, and 5xx status codes
-    return error.message.includes('fetch') || 
-           error.message.includes('timeout') || 
-           error.message.includes('AbortError') ||
+    // Retry on network errors, timeouts, aborts, and 5xx status codes
+    return error.name === 'AbortError' ||
+           error.message.includes('aborted') ||
+           error.message.includes('fetch') || 
+           error.message.includes('timeout') ||
+           error.message.includes('Request timeout') ||
+           error.message.includes('Network connection') ||
+           error.message.includes('Server error') ||
            error.message.includes('5');
   }
 };
@@ -241,9 +245,14 @@ export class P2PoolAPI {
     
     for (let attempt = 1; attempt <= retryConfig.maxRetries + 1; attempt++) {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      let timeoutId: NodeJS.Timeout | null = null;
       
       try {
+        // Set up timeout with better error handling
+        timeoutId = setTimeout(() => {
+          controller.abort();
+        }, timeout);
+        
         // Use the Next.js proxy API route
         const url = new URL(`/api/p2pool/${endpoint}`, window.location.origin);
         url.searchParams.append('apiUrl', this.baseUrl);
@@ -263,7 +272,10 @@ export class P2PoolAPI {
           },
         });
         
-        clearTimeout(timeoutId);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
         
         // Handle HTTP errors
         if (!response.ok) {
@@ -284,41 +296,75 @@ export class P2PoolAPI {
         
         // Success - clear any previous error toasts and show success if this was a retry
         if (attempt > 1) {
-          toast.success(`API Request Recovered`, {
+          toast.success(`Connection Restored`, {
             description: `Successfully connected to ${endpoint} after ${attempt} attempts`,
+            duration: 3000,
           });
         }
         
         return response;
         
       } catch (error) {
-        clearTimeout(timeoutId);
-        lastError = error instanceof Error ? error : new Error('Unknown error');
+        // Clean up timeout
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        
+        // Better error classification and handling
+        let errorMessage = 'Unknown error';
+        let isRetryable = true;
+        
+        if (error instanceof Error) {
+          if (error.name === 'AbortError' || error.message.includes('aborted')) {
+            errorMessage = `Request timeout (${timeout}ms exceeded)`;
+            isRetryable = true;
+          } else if (error.message.includes('fetch')) {
+            errorMessage = 'Network connection error';
+            isRetryable = true;
+          } else if (error.message.includes('5')) {
+            errorMessage = 'Server error';
+            isRetryable = true;
+          } else {
+            errorMessage = error.message;
+            // Don't retry client errors
+            isRetryable = !error.message.includes('4');
+          }
+          lastError = error;
+        } else {
+          lastError = new Error(errorMessage);
+        }
         
         // Check if we should retry
         const shouldRetry = attempt <= retryConfig.maxRetries && 
+                           isRetryable &&
                            (!retryConfig.retryCondition || retryConfig.retryCondition(lastError));
         
         if (!shouldRetry) {
-          // Final failure - show error toast
-          toast.error(`API Request Failed`, {
-            description: `Failed to fetch ${endpoint}: ${lastError.message}`,
+          // Final failure - show user-friendly error toast instead of throwing
+          toast.error(`Connection Failed`, {
+            description: `Unable to reach ${endpoint}: ${errorMessage}`,
+            duration: 5000,
             action: {
               label: "Retry",
               onClick: () => this.fetchWithRetry(endpoint, params, timeout, retryConfig)
             }
           });
-          throw lastError;
+          
+          // Return a rejected promise with a more user-friendly error
+          throw new Error(`Connection failed: ${errorMessage}`);
         }
         
         // Calculate delay for retry
         const delay = this.calculateDelay(attempt, retryConfig);
         
-        // Show retry toast
-        toast.loading(`Retrying API Request`, {
-          description: `Attempt ${attempt + 1}/${retryConfig.maxRetries + 1} for ${endpoint} in ${delay}ms...`,
-          duration: delay,
-        });
+        // Show retry toast only for the first few retries to avoid spam
+        if (attempt <= 2) {
+          toast.loading(`Reconnecting...`, {
+            description: `Attempt ${attempt + 1}/${retryConfig.maxRetries + 1} for ${endpoint} in ${Math.round(delay/1000)}s`,
+            duration: delay,
+          });
+        }
         
         // Wait before retrying
         await this.sleep(delay);
@@ -335,9 +381,11 @@ export class P2PoolAPI {
       const data = await response.json()
       return data
     } catch (error) {
-      const errorMessage = `Failed to fetch pool info: ${error instanceof Error ? error.message : 'Unknown error'}`
-      console.error('Error fetching pool info:', error)
-      throw new Error(errorMessage)
+      // Silent handling for network outages - only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Pool info fetch failed (expected during network outages):', error)
+      }
+      throw new Error('Unable to fetch pool information')
     }
   }
 
@@ -348,11 +396,17 @@ export class P2PoolAPI {
       return data
     } catch (error) {
       if (error instanceof Error && error.message.includes('404')) {
+        toast.error('Miner Not Found', {
+          description: 'The specified miner address was not found in the pool',
+          duration: 4000,
+        })
         throw new Error('Miner not found')
       }
-      const errorMessage = `Failed to fetch miner info: ${error instanceof Error ? error.message : 'Unknown error'}`
-      console.error('Error fetching miner info:', error)
-      throw new Error(errorMessage)
+      // Silent handling for network outages - only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Miner info fetch failed:', error)
+      }
+      throw new Error('Unable to fetch miner information')
     }
   }
 
@@ -367,16 +421,20 @@ export class P2PoolAPI {
       const data = await response.json()
       return data
     } catch (error) {
-      const errorMessage = `Failed to fetch shares: ${error instanceof Error ? error.message : 'Unknown error'}`
-      console.error('Error fetching shares:', error)
-      throw new Error(errorMessage)
+      // Silent handling for network outages - only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Shares fetch failed (expected during network outages):', error)
+      }
+      throw new Error('Unable to fetch share data')
     }
   }
 
   // Get miner-specific shares using proper server-side filtering - this is the correct approach!
   async getMinerSharesDirect(address: string, limit: number = 50): Promise<SideBlock[]> {
     try {
-      console.log(`Fetching ${limit} direct miner shares for ${address}`)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Fetching ${limit} direct miner shares for ${address}`)
+      }
       
       // Use the direct miner parameter approach - much more efficient!
       const shares = await this.getShares(limit, address)
@@ -384,11 +442,17 @@ export class P2PoolAPI {
       // Sort by height descending (newest first)
       const sortedShares = shares.sort((a, b) => b.side_height - a.side_height)
       
-      console.log(`Got ${sortedShares.length} direct miner shares`)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Got ${sortedShares.length} direct miner shares`)
+      }
       return sortedShares
       
     } catch (error) {
-      console.error('Error fetching direct miner shares:', error)
+      // Silent handling for network outages - only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Error fetching direct miner shares (expected during network outages):', error)
+      }
+      // Return empty array instead of throwing to prevent UI crashes
       return []
     }
   }
@@ -403,7 +467,7 @@ export class P2PoolAPI {
       }
       
       // For historical pagination, we still need the complex approach since API doesn't support height-based pagination for miner parameter
-      let allMinerShares: SideBlock[] = []
+      const allMinerShares: SideBlock[] = []
       let currentFromHeight = fromHeight
       let attempts = 0
       const maxAttempts = 5 // Prevent infinite loops
@@ -412,62 +476,83 @@ export class P2PoolAPI {
       while (allMinerShares.length < limit && attempts < maxAttempts) {
         attempts++
         
-        // Fetch more data with increasing batch sizes
-        const batchSize = Math.min(500 + (attempts * 200), 1000) // Start with 500, increase to max 1000
-        
-        console.log(`Attempt ${attempts}: Fetching ${batchSize} shares starting from height ${currentFromHeight || 'latest'}`)
-        
-        const allShares = await this.getShares(batchSize)
-        
-        if (allShares.length === 0) {
-          console.log('No more shares available from API')
-          break
-        }
-        
-        // Filter for miner-specific shares
-        let filteredShares = allShares.filter(share => share.miner_address === address)
-        
-        // Apply height filtering if specified
-        if (currentFromHeight !== undefined) {
-          filteredShares = filteredShares.filter(share => share.side_height < currentFromHeight!)
-        }
-        
-        // Add new shares, avoiding duplicates
-        for (const share of filteredShares) {
-          if (!allMinerShares.some(existing => existing.template_id === share.template_id)) {
-            allMinerShares.push(share)
+        try {
+          // Fetch more data with increasing batch sizes
+          const batchSize = Math.min(500 + (attempts * 200), 1000) // Start with 500, increase to max 1000
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Attempt ${attempts}: Fetching ${batchSize} shares starting from height ${currentFromHeight || 'latest'}`)
           }
-        }
-        
-        console.log(`Found ${filteredShares.length} new miner shares (total: ${allMinerShares.length}/${limit})`)
-        
-        // If we found some shares but still need more, try to get older data
-        if (filteredShares.length > 0 && allMinerShares.length < limit) {
-          // Get the minimum height from this batch to use as the new fromHeight
-          const minHeight = Math.min(...allShares.map(share => share.side_height))
-          if (currentFromHeight === undefined || minHeight < currentFromHeight) {
-            currentFromHeight = minHeight
-          } else {
-            // No progress made in height, break to avoid infinite loop
-            console.log('No height progress made, stopping search')
+          
+          const allShares = await this.getShares(batchSize)
+          
+          if (allShares.length === 0) {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('No more shares available from API')
+            }
             break
           }
-        } else if (filteredShares.length === 0) {
-          // No shares found for this miner in this batch
-          // Update fromHeight to continue searching older blocks
-          const minHeight = Math.min(...allShares.map(share => share.side_height))
-          if (currentFromHeight === undefined || minHeight < currentFromHeight) {
-            currentFromHeight = minHeight
-          } else {
-            // No progress made, this miner likely has no more shares
-            console.log('No miner shares found in this batch and no height progress, stopping')
+          
+          // Filter for miner-specific shares
+          let filteredShares = allShares.filter(share => share.miner_address === address)
+          
+          // Apply height filtering if specified
+          if (currentFromHeight !== undefined) {
+            filteredShares = filteredShares.filter(share => share.side_height < currentFromHeight!)
+          }
+          
+          // Add new shares, avoiding duplicates
+          for (const share of filteredShares) {
+            if (!allMinerShares.some(existing => existing.template_id === share.template_id)) {
+              allMinerShares.push(share)
+            }
+          }
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Found ${filteredShares.length} new miner shares (total: ${allMinerShares.length}/${limit})`)
+          }
+          
+          // If we found some shares but still need more, try to get older data
+          if (filteredShares.length > 0 && allMinerShares.length < limit) {
+            // Get the minimum height from this batch to use as the new fromHeight
+            const minHeight = Math.min(...allShares.map(share => share.side_height))
+            if (currentFromHeight === undefined || minHeight < currentFromHeight) {
+              currentFromHeight = minHeight
+            } else {
+              // No progress made in height, break to avoid infinite loop
+              if (process.env.NODE_ENV === 'development') {
+                console.log('No height progress made, stopping search')
+              }
+              break
+            }
+          } else if (filteredShares.length === 0) {
+            // No shares found for this miner in this batch
+            // Update fromHeight to continue searching older blocks
+            const minHeight = Math.min(...allShares.map(share => share.side_height))
+            if (currentFromHeight === undefined || minHeight < currentFromHeight) {
+              currentFromHeight = minHeight
+            } else {
+              // No progress made, this miner likely has no more shares
+              if (process.env.NODE_ENV === 'development') {
+                console.log('No miner shares found in this batch and no height progress, stopping')
+              }
+              break
+            }
+          }
+          
+          // If we got enough shares, break
+          if (allMinerShares.length >= limit) {
             break
           }
-        }
-        
-        // If we got enough shares, break
-        if (allMinerShares.length >= limit) {
-          break
+        } catch (batchError) {
+          // Silent handling for network outages - only log in development mode
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(`Batch ${attempts} failed (expected during network outages):`, batchError)
+          }
+          // Continue to next attempt rather than failing completely
+          if (attempts >= maxAttempts) {
+            break
+          }
         }
       }
       
@@ -475,11 +560,17 @@ export class P2PoolAPI {
       allMinerShares.sort((a, b) => b.side_height - a.side_height)
       const result = allMinerShares.slice(0, limit)
       
-      console.log(`Final result: ${result.length} miner shares found after ${attempts} attempts`)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Final result: ${result.length} miner shares found after ${attempts} attempts`)
+      }
       return result
       
     } catch (error) {
-      console.error('Error fetching miner shares:', error)
+      // Silent handling for network outages - only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Error fetching miner shares (expected during network outages):', error)
+      }
+      // Return empty array instead of throwing to prevent UI crashes
       return []
     }
   }
@@ -495,9 +586,11 @@ export class P2PoolAPI {
       const data = await response.json()
       return data
     } catch (error) {
-      const errorMessage = `Failed to fetch found blocks: ${error instanceof Error ? error.message : 'Unknown error'}`
-      console.error('Error fetching found blocks:', error)
-      throw new Error(errorMessage)
+      // Silent handling for network outages - only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Found blocks fetch failed (expected during network outages):', error)
+      }
+      throw new Error('Unable to fetch found blocks data')
     }
   }
 
@@ -515,16 +608,18 @@ export class P2PoolAPI {
       const data = await response.json()
       return data
     } catch (error) {
-      const errorMessage = `Failed to fetch window blocks: ${error instanceof Error ? error.message : 'Unknown error'}`
-      console.error('Error fetching window blocks:', error)
-      throw new Error(errorMessage)
+      // Silent handling for network outages - only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Window blocks fetch failed (expected during network outages):', error)
+      }
+      throw new Error('Unable to fetch window blocks data')
     }
   }
 
   // Get miner-specific found blocks - improved pagination approach  
   async getMinerFoundBlocks(address: string, limit: number = 10, fromHeight?: number): Promise<FoundBlock[]> {
     try {
-      let allMinerBlocks: FoundBlock[] = []
+      const allMinerBlocks: FoundBlock[] = []
       let currentFromHeight = fromHeight
       let attempts = 0
       const maxAttempts = 5 // Prevent infinite loops
@@ -533,62 +628,83 @@ export class P2PoolAPI {
       while (allMinerBlocks.length < limit && attempts < maxAttempts) {
         attempts++
         
-        // Fetch more data with increasing batch sizes
-        const batchSize = Math.min(200 + (attempts * 100), 500) // Start with 200, increase to max 500
-        
-        console.log(`Attempt ${attempts}: Fetching ${batchSize} blocks starting from height ${currentFromHeight || 'latest'}`)
-        
-        const allBlocks = await this.getFoundBlocks(batchSize)
-        
-        if (allBlocks.length === 0) {
-          console.log('No more blocks available from API')
-          break
-        }
-        
-        // Filter for miner-specific blocks
-        let filteredBlocks = allBlocks.filter(block => block.miner_address === address)
-        
-        // Apply height filtering if specified
-        if (currentFromHeight !== undefined) {
-          filteredBlocks = filteredBlocks.filter(block => block.main_block.height < currentFromHeight!)
-        }
-        
-        // Add new blocks, avoiding duplicates
-        for (const block of filteredBlocks) {
-          if (!allMinerBlocks.some(existing => existing.main_block.id === block.main_block.id)) {
-            allMinerBlocks.push(block)
+        try {
+          // Fetch more data with increasing batch sizes
+          const batchSize = Math.min(200 + (attempts * 100), 500) // Start with 200, increase to max 500
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Attempt ${attempts}: Fetching ${batchSize} blocks starting from height ${currentFromHeight || 'latest'}`)
           }
-        }
-        
-        console.log(`Found ${filteredBlocks.length} new miner blocks (total: ${allMinerBlocks.length}/${limit})`)
-        
-        // If we found some blocks but still need more, try to get older data
-        if (filteredBlocks.length > 0 && allMinerBlocks.length < limit) {
-          // Get the minimum height from this batch to use as the new fromHeight
-          const minHeight = Math.min(...allBlocks.map(block => block.main_block.height))
-          if (currentFromHeight === undefined || minHeight < currentFromHeight) {
-            currentFromHeight = minHeight
-          } else {
-            // No progress made in height, break to avoid infinite loop
-            console.log('No height progress made, stopping search')
+          
+          const allBlocks = await this.getFoundBlocks(batchSize)
+          
+          if (allBlocks.length === 0) {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('No more blocks available from API')
+            }
             break
           }
-        } else if (filteredBlocks.length === 0) {
-          // No blocks found for this miner in this batch
-          // Update fromHeight to continue searching older blocks
-          const minHeight = Math.min(...allBlocks.map(block => block.main_block.height))
-          if (currentFromHeight === undefined || minHeight < currentFromHeight) {
-            currentFromHeight = minHeight
-          } else {
-            // No progress made, this miner likely has no more blocks
-            console.log('No miner blocks found in this batch and no height progress, stopping')
+          
+          // Filter for miner-specific blocks
+          let filteredBlocks = allBlocks.filter(block => block.miner_address === address)
+          
+          // Apply height filtering if specified
+          if (currentFromHeight !== undefined) {
+            filteredBlocks = filteredBlocks.filter(block => block.main_block.height < currentFromHeight!)
+          }
+          
+          // Add new blocks, avoiding duplicates
+          for (const block of filteredBlocks) {
+            if (!allMinerBlocks.some(existing => existing.main_block.id === block.main_block.id)) {
+              allMinerBlocks.push(block)
+            }
+          }
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Found ${filteredBlocks.length} new miner blocks (total: ${allMinerBlocks.length}/${limit})`)
+          }
+          
+          // If we found some blocks but still need more, try to get older data
+          if (filteredBlocks.length > 0 && allMinerBlocks.length < limit) {
+            // Get the minimum height from this batch to use as the new fromHeight
+            const minHeight = Math.min(...allBlocks.map(block => block.main_block.height))
+            if (currentFromHeight === undefined || minHeight < currentFromHeight) {
+              currentFromHeight = minHeight
+            } else {
+              // No progress made in height, break to avoid infinite loop
+              if (process.env.NODE_ENV === 'development') {
+                console.log('No height progress made, stopping search')
+              }
+              break
+            }
+          } else if (filteredBlocks.length === 0) {
+            // No blocks found for this miner in this batch
+            // Update fromHeight to continue searching older blocks
+            const minHeight = Math.min(...allBlocks.map(block => block.main_block.height))
+            if (currentFromHeight === undefined || minHeight < currentFromHeight) {
+              currentFromHeight = minHeight
+            } else {
+              // No progress made, this miner likely has no more blocks
+              if (process.env.NODE_ENV === 'development') {
+                console.log('No miner blocks found in this batch and no height progress, stopping')
+              }
+              break
+            }
+          }
+          
+          // If we got enough blocks, break
+          if (allMinerBlocks.length >= limit) {
             break
           }
-        }
-        
-        // If we got enough blocks, break
-        if (allMinerBlocks.length >= limit) {
-          break
+        } catch (batchError) {
+          // Silent handling for network outages - only log in development mode
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(`Batch ${attempts} failed (expected during network outages):`, batchError)
+          }
+          // Continue to next attempt rather than failing completely
+          if (attempts >= maxAttempts) {
+            break
+          }
         }
       }
       
@@ -596,17 +712,23 @@ export class P2PoolAPI {
       allMinerBlocks.sort((a, b) => b.main_block.height - a.main_block.height)
       const result = allMinerBlocks.slice(0, limit)
       
-      console.log(`Final result: ${result.length} miner blocks found after ${attempts} attempts`)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Final result: ${result.length} miner blocks found after ${attempts} attempts`)
+      }
       return result
       
     } catch (error) {
-      console.error('Error fetching miner found blocks:', error)
+      // Silent handling for network outages - only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Error fetching miner found blocks (expected during network outages):', error)
+      }
+      // Return empty array instead of throwing to prevent UI crashes
       return []
     }
   }
 
   // Get miner payouts/transactions - actual P2Pool observer API endpoint
-  async getMinerPayouts(address: string, limit?: number): Promise<any[]> {
+  async getMinerPayouts(address: string, limit?: number): Promise<unknown[]> {
     try {
       // Use search_limit=0 to get all payouts (historical), or specific limit for pagination
       const searchLimit = limit !== undefined ? limit.toString() : '0'
@@ -632,8 +754,10 @@ export class P2PoolAPI {
       //   "including_height": 5427726
       // }
       
-      console.log('Payouts API response:', payouts)
-      console.log('Number of payouts found:', Array.isArray(payouts) ? payouts.length : 'Not an array')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Payouts API response:', payouts)
+        console.log('Number of payouts found:', Array.isArray(payouts) ? payouts.length : 'Not an array')
+      }
       
       const result = Array.isArray(payouts) ? payouts : []
       
@@ -643,9 +767,12 @@ export class P2PoolAPI {
       if (error instanceof Error && error.message.includes('404')) {
         return [] // No payouts found for this miner - not an error
       }
-      const errorMessage = `Failed to fetch miner payouts: ${error instanceof Error ? error.message : 'Unknown error'}`
-      console.error('Error fetching miner payouts:', error)
-      throw new Error(errorMessage)
+      // Silent handling for network outages - only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Miner payouts fetch failed (expected during network outages):', error)
+      }
+      // Don't throw for payouts as it's not critical data
+      return []
     }
   }
 
@@ -663,7 +790,11 @@ export class P2PoolAPI {
         blocks: windowBlocks
       }
     } catch (error) {
-      console.error('Error fetching miner window shares:', error)
+      // Silent handling for network outages - only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Error fetching miner window shares (expected during network outages):', error)
+      }
+      // Return empty result instead of throwing to prevent UI crashes
       return { shares: 0, blocks: [] }
     }
   }
@@ -713,35 +844,13 @@ export class P2PoolAPI {
         return null
       }
 
-      // Known P2Pool version signatures based on your documentation
-      const versionSignatures = {
-        'v4.5': {
-          template_extra_buffer: ['66c31858', '682d5a56'],
-          deterministic_private_key_seed: 'ee4e8f931d0a484b2d9cccad15df64653db6100bc7120fbe73463f99bbfe3bf9'
-        },
-        'v4.4': {
-          template_extra_buffer: ['93ee01b2', '98dc5d90', '54d768dd', '866ea359', '44390ab8', '975b1b49'],
-          deterministic_private_key_seed: ['a7549a77e3628f2927d8ca5b995155d28517f637ce8e572bfb04ca8269644c78', '6f20b302da8d8adb676e5da5cb428a0ab8a0ac6fc9b66a0486b5901eaca9d81b', '93985c184424be07b165064254d8ba5e2fabe88350a3d62c2ea0aa5ead57837d']
-        },
-        'v4.1.1': {
-          template_extra_buffer: ['db64888e', '3d466213'],
-          deterministic_private_key_seed: '44fec019e3d8295f895eefc2159f3a87d27fdee58850624a94a93508b45b6a13'
-        },
-        'v4.1': {
-          template_extra_buffer: ['83c03441', 'd0722bd3'],
-          deterministic_private_key_seed: 'c5508cca15657e85cce71e91517457ceb9cf5bb4a5d9d223ca697da249679824'
-        }
-      }
-
       // For now, we'll use template_id analysis to detect signatures
       // In a real implementation, we'd need access to the raw share data
       // This is a placeholder that demonstrates the concept
       
-      console.log('Analyzing shares for P2Pool version detection:', shares.length)
-      
-      // Look for patterns in template_ids that might indicate version signatures
-      // This is simplified - in reality we'd need access to the actual template extra buffer
-      const templateIds = shares.map(share => share.template_id)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Analyzing shares for P2Pool version detection:', shares.length)
+      }
       
       // For demonstration, we'll return a detected version based on share count and recency
       // In a real implementation, this would analyze the actual signature data
@@ -777,7 +886,10 @@ export class P2PoolAPI {
       }
 
     } catch (error) {
-      console.error('Error detecting P2Pool version:', error)
+      // Silent handling for network outages - only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Error detecting P2Pool version (expected during network outages):', error)
+      }
       return null
     }
   }
@@ -799,10 +911,22 @@ export class P2PoolAPI {
       
       return result;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
       toast.error(`${operationName} Failed`, {
-        description: `Operation failed even after retry: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        description: `Operation failed even after retry: ${errorMessage}`,
+        duration: 5000,
+        action: {
+          label: "Try Again",
+          onClick: () => this.retryOperation(operation, operationName)
+        }
       });
-      throw error;
+      
+      // Silent handling for network outages - only log in development mode and don't throw to prevent console errors
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`Manual retry failed for ${operationName} (expected during network outages):`, error)
+      }
+      throw new Error(`Retry failed: ${errorMessage}`)
     }
   }
 } 

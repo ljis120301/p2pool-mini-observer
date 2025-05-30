@@ -1,6 +1,28 @@
 import { P2PoolAPI } from "@/lib/p2pool-api"
 import { PriceAPI } from "@/lib/price-api"
 
+interface MinerWindowShares {
+  shares: number
+  blocks: Array<{ difficulty: number }>
+}
+
+interface MinerInfo {
+  shares: Array<{ shares: number }>
+}
+
+interface PoolInfo {
+  sidechain: {
+    window: {
+      weight: number
+    }
+  }
+}
+
+interface Payout {
+  timestamp: number
+  coinbase_reward: number
+}
+
 export class FormattingUtils {
   static formatHashrate = P2PoolAPI.formatHashrate
   static formatXMR = P2PoolAPI.formatXMR
@@ -19,19 +41,19 @@ export class FormattingUtils {
   }
 
   static calculatePoolShare(
-    minerWindowShares: { shares: number; blocks: any[] },
-    minerInfo: any,
-    poolInfo: any
+    minerWindowShares: MinerWindowShares,
+    minerInfo: MinerInfo,
+    poolInfo: PoolInfo
   ): number {
     const windowWeight = poolInfo.sidechain.window.weight
     
     // Get total difficulty of miner's shares in the window
     let minerTotalDifficulty = 0
     if (minerWindowShares.blocks && minerWindowShares.blocks.length > 0) {
-      minerTotalDifficulty = minerWindowShares.blocks.reduce((sum: number, block: any) => sum + block.difficulty, 0)
+      minerTotalDifficulty = minerWindowShares.blocks.reduce((sum: number, block: { difficulty: number }) => sum + block.difficulty, 0)
     } else {
       // Fallback: use the shares count from minerInfo
-      minerTotalDifficulty = minerInfo.shares.reduce((sum: number, s: any) => sum + s.shares, 0)
+      minerTotalDifficulty = minerInfo.shares.reduce((sum: number, s: { shares: number }) => sum + s.shares, 0)
     }
     
     // Calculate percentage using difficulty weighting
@@ -53,7 +75,7 @@ export class FormattingUtils {
     return percentage
   }
 
-  static filterRecentPayouts(payouts: any[]): any[] {
+  static filterRecentPayouts(payouts: Payout[]): Payout[] {
     if (!Array.isArray(payouts)) return []
     
     const now = Math.floor(Date.now() / 1000)
@@ -71,7 +93,7 @@ export class FormattingUtils {
     return recentPayouts
   }
 
-  static getDisplayedPayouts(payouts: any[], displayCount: number): any[] {
+  static getDisplayedPayouts(payouts: Payout[], displayCount: number): Payout[] {
     if (!Array.isArray(payouts)) return []
     
     return payouts

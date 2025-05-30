@@ -141,20 +141,21 @@ class P2PoolServiceWorker implements ServiceWorkerManager {
     if (typeof window === 'undefined') return false
 
     // Check if beforeinstallprompt event was fired
-    const deferredPrompt = (window as any).deferredPrompt
+    const deferredPrompt = (window as unknown as { deferredPrompt?: unknown }).deferredPrompt
     if (!deferredPrompt) {
       return false
     }
 
     try {
       // Show install prompt
-      deferredPrompt.prompt()
-      const { outcome } = await deferredPrompt.userChoice
+      const prompt = deferredPrompt as { prompt: () => void; userChoice: Promise<{ outcome: string }> }
+      prompt.prompt()
+      const { outcome } = await prompt.userChoice
       
       logger.debug('PWA install prompt result:', outcome)
       
       // Clear the deferredPrompt
-      ;(window as any).deferredPrompt = null
+      ;(window as unknown as { deferredPrompt?: unknown }).deferredPrompt = null
       
       return outcome === 'accepted'
     } catch (error) {
@@ -168,7 +169,7 @@ class P2PoolServiceWorker implements ServiceWorkerManager {
     if (typeof window === 'undefined') return false
     
     return window.matchMedia('(display-mode: standalone)').matches ||
-           (window.navigator as any).standalone === true ||
+           (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
            document.referrer.includes('android-app://')
   }
 
