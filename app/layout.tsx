@@ -22,6 +22,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "P2Pool Mini Observer",
   description: "A P2Pool Mini observer application for tracking mining statistics",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
