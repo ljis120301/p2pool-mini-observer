@@ -251,12 +251,19 @@ export function P2PoolDashboard() {
     const displayedPayouts = FormattingUtils.getDisplayedPayouts(minerPayouts, displayedPayoutsCount)
     const poolShare = poolInfo && minerInfo ? FormattingUtils.calculatePoolShare(minerWindowShares, minerInfo, poolInfo) : 0
 
+    // Calculate total shares in the last 24 hours using recentMinerShares (which has timestamps)
+    const twentyFourHoursAgo = Date.now() / 1000 - (24 * 60 * 60) // Convert to seconds since API uses Unix timestamps
+    const totalDayShares = recentMinerShares.filter(share => 
+      share.timestamp >= twentyFourHoursAgo
+    ).length // Each SideBlock represents one share
+
     return {
       recentPayouts,
       displayedPayouts,
-      poolShare
+      poolShare,
+      totalDayShares
     }
-  }, [minerPayouts, displayedPayoutsCount, poolInfo, minerInfo, minerWindowShares])
+  }, [minerPayouts, displayedPayoutsCount, poolInfo, minerInfo, minerWindowShares, recentMinerShares])
 
   // Loading state
   if (isLoading && !poolInfo) {
@@ -354,10 +361,10 @@ export function P2PoolDashboard() {
                     />
 
                     <StatCard
-                      title="Uncle Blocks"
-                      value={minerInfo.shares.reduce((sum, s) => sum + s.uncles, 0)}
-                      subtitle="Orphaned shares"
-                      icon={Users}
+                      title="Total Day Shares"
+                      value={computedValues.totalDayShares.toLocaleString()}
+                      subtitle="All shares in 24 hours"
+                      icon={Activity}
                       gradient="bg-gradient-to-br from-blue-50 via-cyan-50 to-blue-100 dark:from-blue-950/40 dark:via-cyan-950/30 dark:to-blue-900/50"
                       iconGradient="bg-gradient-to-br from-blue-400 to-cyan-500"
                       decorativeColor="bg-gradient-to-br from-blue-200/30 to-cyan-300/20 dark:from-blue-800/30 dark:to-cyan-700/20"
